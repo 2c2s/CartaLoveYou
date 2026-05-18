@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AERLEN — Carta Interactiva</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Plus+Jakarta+Sans:wght@200;300;400;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --gold:#e5c158;
+      --pink:#ff1461;
+      --bg:#050409;
+      --panel:rgba(11,9,19,0.48);
+      --glass-border:rgba(255,255,255,0.06);
+      --muted:rgba(255,255,255,0.6);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:'Plus Jakarta Sans',sans-serif;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(229,193,88,0.04), transparent),
+                  radial-gradient(900px 500px at 90% 90%, rgba(255,20,97,0.02), transparent),
+                  var(--bg);
+      color:#fff;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:28px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    /* Canvas backgrounds */
+    #webgl-canvas, #confetti-canvas {
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:0;
+      pointer-events:none;
+    }
+
+    /* Main container */
+    .container{
+      position:relative;
+      z-index:2;
+      width:100%;
+      max-width:980px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1fr 420px;
+      gap:24px;
+      align-items:start;
+    }
+
+    /* Card left (letter) */
+    .card{
+      background:var(--panel);
+      border-radius:28px;
+      padding:34px;
+      border:1px solid rgba(229,193,88,0.08);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter:blur(18px) saturate(150%);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .brand{
+      font-family:'Cinzel',serif;
+      letter-spacing:6px;
+      color:var(--gold);
+      text-shadow:0 0 12px rgba(229,193,88,0.12);
+      font-size:0.75rem;
+      opacity:0.95;
+      margin-bottom:18px;
+    }
+
+    h1.title{
+      font-family:'Cinzel',serif;
+      margin:6px 0 18px 0;
+      font-size:2rem;
+      letter-spacing:2px;
+      background:linear-gradient(180deg,#fff 40%, rgba(255,255,255,0.6));
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+
+    .controls-row{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+    .lux-btn{
+      appearance:none;
+      border:1px solid var(--glass-border);
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      color:var(--muted);
+      padding:10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      letter-spacing:1px;
+      transition:all .22s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:0.86rem;
+    }
+    .lux-btn:hover{transform:translateY(-4px); color:#fff; border-color:rgba(255,20,97,0.3)}
+    .lux-btn.secondary{background:transparent; border:1px dashed rgba(255,255,255,0.04)}
+    .small{padding:8px 10px; font-size:0.8rem}
+
+    .narrative{
+      font-size:1.05rem;
+      line-height:1.8;
+      color:rgba(255,255,255,0.86);
+      min-height:320px;
+      max-height:62vh;
+      overflow:auto;
+      padding-right:8px;
+    }
+    .narrative p{margin:0 0 10px 0}
+    .narrative em{font-family:'Playfair Display', serif; color:var(--gold); font-style:italic}
+    .narrative .highlight{ color:var(--pink); text-shadow:0 0 12px rgba(255,20,97,0.12)}
+
+    /* Right panel (interaction) */
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:20px;
+      padding:22px;
+      border:1px solid rgba(255,255,255,0.03);
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .panel h3{font-family:'Cinzel',serif; margin:0; font-size:1rem; color:var(--gold)}
+    label{font-size:0.78rem; color:var(--muted)}
+    input[type="text"], input[type="number"], textarea, select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent;
+      color:#fff;
+      outline:none;
+      font-size:0.92rem;
+    }
+    textarea{min-height:100px; resize:vertical}
+
+    .small-muted{font-size:0.78rem; color:rgba(255,255,255,0.55)}
+    .row{display:flex;gap:8px; align-items:center}
+
+    /* Heart element */
+    .core-heart{
+      width:62px;height:62px;cursor:pointer; flex:0 0 auto;
+      filter:drop-shadow(0 0 12px rgba(255,20,97,0.12));
+      transition:transform .25s ease;
+    }
+    .core-heart.active{transform:scale(1.12) rotate(-6deg)}
+    .footer-actions{display:flex;gap:10px; align-items:center; margin-top:auto}
+
+    /* Modal */
+    .modal{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:40;
+    }
+    .modal.show{display:flex}
+    .modal .sheet{
+      width:min(900px,96%); max-height:90vh; overflow:auto;
+      padding:20px; border-radius:16px; background:linear-gradient(180deg, rgba(10,8,18,0.96), rgba(8,6,14,0.98));
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow:0 30px 90px rgba(0,0,0,0.8);
+    }
+
+    /* Tooltip and small ornaments */
+    .badge{font-size:0.75rem;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02)}
+    .muted{color:rgba(255,255,255,0.65)}
+
+    /* Responsiveness */
+    @media (max-width:980px){
+      .container{grid-template-columns:1fr; padding-bottom:40px}
+      .narrative{min-height:220px; max-height:46vh}
+    }
+
+    /* Tiny hearts used as particles */
+    .tiny-heart{
+      position:absolute;
+      pointer-events:none;
+      width:14px;height:14px;
+      transform:translate(-50%,-50%) rotate(12deg);
+      filter:drop-shadow(0 6px 12px rgba(255,20,97,0.18));
+      will-change:transform,opacity;
+    }
+
+    /* visual focus for accessibility */
+    :focus{outline:2px solid rgba(229,193,88,0.18); outline-offset:2px}
+  </style>
+</head>
+<body>
+  <canvas id="webgl-canvas"></canvas>
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="container" role="main" aria-label="Carta Interactiva Privada">
+    <section class="card" aria-labelledby="title-left">
+      <div class="brand">PRIVATE ARCHIVE</div>
+      <h1 id="title-left" class="title">Aerlen</h1>
+
+      <div class="controls-row" aria-hidden="false">
+        <svg class="core-heart" id="main-heart" viewBox="0 0 32 29.6" onclick="toggleHeart()" aria-hidden="true">
+          <path d="M16,28.1L3.4,15.5C0.3,12.4,0.3,7.3,3.4,4.2c3.1-3.1,8.1-3.1,11.2,0l1.4,1.4l1.4-1.4c3.1-3.1,8.1-3.1,11.2,0c3.1,3.1,3.1,8.1,0,11.2L16,28.1z"></path>
+        </svg>
+
+        <button class="lux-btn" id="btn-music" onclick="toggleMusic()" title="Alternar música">Música: <span id="music-state">Off</span></button>
+        <button class="lux-btn" onclick="openComposer()" title="Escribe un texto romántico">Componer</button>
+        <button class="lux-btn" onclick="downloadLetter()" title="Descargar carta como texto">Descargar</button>
+        <button class="lux-btn secondary" onclick="openModal('full')" title="Ver carta completa">Ver Completa</button>
+      </div>
+
+      <div id="stream-box" class="narrative" tabindex="0" aria-live="polite">
+        <!-- contenido dinámico -->
+      </div>
+
+      <div class="footer-actions">
+        <div class="small-muted">Pulsa el corazón o usa el generador para llenar la carta con más amor.</div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-labelledby="panel-title">
+      <h3 id="panel-title">Controles & Creación</h3>
+
+      <label>Tu nombre (remplaza los placeholders)</label>
+      <input id="name-me" type="text" placeholder="Tu nombre" value="Mi amor">
+
+      <label>Nombre de ella/él</label>
+      <input id="name-them" type="text" placeholder="Aerlen" value="Aerlen">
+
+      <label>Generar líneas (cantidad)</label>
+      <div class="row">
+        <input id="line-count" type="number" min="1" max="5000" step="1" value="250" />
+        <button class="lux-btn small" onclick="generateMany()">Generar</button>
+      </div>
+
+      <label class="small-muted">Personaliza frases</label>
+      <textarea id="prompt-custom" placeholder="Puedes escribir una frase o dejar vacío para usar el generador automático"></textarea>
+
+      <div class="row">
+        <button class="lux-btn" onclick="appendCustom()">Añadir al final</button>
+        <button class="lux-btn secondary" onclick="clearStream()">Limpiar</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:10px 0">
+
+      <label>Audio: sintetizador ambiental (sin archivos)</label>
+      <div class="row" style="gap:6px;">
+        <button class="lux-btn small" onclick="startSynth()">Play Pad</button>
+        <button class="lux-btn small" onclick="stopSynth()">Stop</button>
+        <div style="flex:1">
+          <label class="small-muted">Volumen</label>
+          <input id="synth-volume" type="range" min="0" max="1" step="0.01" value="0.28" />
+        </div>
+      </div>
+
+      <label class="small-muted">Sube tu canción (opcional)</label>
+      <input id="audio-file" type="file" accept="audio/*" onchange="loadUserFile(event)" />
+
+      <div class="row" style="gap:10px; margin-top:6px;">
+        <button class="lux-btn" onclick="burstHearts(12)">Explosión de Corazones</button>
+        <button class="lux-btn" onclick="burstConfetti()">Confeti</button>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="badge">Atajos: H = corazón, M = música, G = generar</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal: full letter -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="sheet" role="document">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+        <h2 style="margin:0;font-family:'Cinzel',serif">Carta Completa</h2>
+        <div style="display:flex;gap:8px">
+          <button class="lux-btn" onclick="closeModal()">Cerrar</button>
+          <button class="lux-btn" onclick="downloadLetter()">Descargar</button>
+        </div>
+      </div>
+      <div id="modal-content" style="white-space:pre-wrap; line-height:1.7;"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---- UTILIDADES Y ESTADO ----
+    const streamBox = document.getElementById('stream-box');
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modal-content');
+    const nameMeInput = document.getElementById('name-me');
+    const nameThemInput = document.getElementById('name-them');
+    const musicState = document.getElementById('music-state');
+    const synthVolumeInput = document.getElementById('synth-volume');
+
+    let heartActive = false;
+    let audioContext = null;
+    let synthNodes = null;
+    let userAudioElement = null;
+    let musicOn = false;
+
+    // Small helper to sanitize text for display
+    function esc(s){ if(!s) return ''; return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    // ---- TIMELINE / GENERADOR ----
+    // Base fragments to combine into romantic lines
+    const fragments = {
+      start: [
+        "En la superficie de un día cualquiera",
+        "Entre lo frágil y lo eterno",
+        "En cada latido mío",
+        "En la dirección de tu mirada",
+        "Cuando el mundo se ralentiza",
+        "Bajo las luces de neón o la calma del alba",
+        "En el silencio que comparten nuestras manos",
+        "Mientras el código se vuelve piel",
+        "En la memoria donde guardo tus risas"
+      ],
+      middle: [
+        "encuentro una constelación que lleva tu nombre",
+        "tu risa cambia el clima de mi pecho",
+        "tu voz escribe poemas en el aire",
+        "cada segundo es un pacto de ternura",
+        "se vuelve costumbre desearte al despertar",
+        "se hace hogar la sombra de tu abrazo",
+        "tus huellas son la cartografía de mi calma",
+        "tu presencia transforma la lógica en milagro",
+        "mi tiempo se reinventa cuando pronuncias mi nombre"
+      ],
+      end: [
+        "y hago de ese latido la razón de mi existencia.",
+        "porque tu amor no conoce fronteras ni errores.",
+        "y quedo, para siempre, en el lugar donde estás tú.",
+        "y prometo cuidar ese fuego con delicadeza ilesa.",
+        "y espero, con paciencia, dibujar contigo mañana tras mañana.",
+        "y aprenderé tus silencios como mapas sagrados.",
+        "y seré la promesa que sostenga tus días nublados.",
+        "y renaceré en cada beso que nos regale la vida.",
+        "porque contigo, mi universo eligió quedarse."
+      ],
+      connectors: [
+        "—",
+        "·",
+        "•"
+      ]
+    };
+
+    // Function to generate a single romantic line, optionally using custom prompt
+    function generateLine(custom){
+      const nameMe = esc(nameMeInput.value || "Yo");
+      const nameThem = esc(nameThemInput.value || "Tú");
+      if(custom && custom.trim()){
+        // interpolate placeholders like {me} {them}
+        return custom.replace(/\{me\}/gi, nameMe).replace(/\{them\}/gi, nameThem);
+      }
+      const s = fragments.start[Math.floor(Math.random()*fragments.start.length)];
+      const m = fragments.middle[Math.floor(Math.random()*fragments.middle.length)];
+      const e = fragments.end[Math.floor(Math.random()*fragments.end.length)];
+      const connector = fragments.connectors[Math.floor(Math.random()*fragments.connectors.length)];
+      return `${s} ${m} ${connector} ${e}`;
+    }
+
+    // Append a line smoothly with small animation
+    function appendLineToStream(text){
+      const p = document.createElement('p');
+      p.innerHTML = text;
+      p.style.opacity = 0;
+      streamBox.appendChild(p);
+      // scroll to bottom
+      streamBox.scrollTop = streamBox.scrollHeight;
+      requestAnimationFrame(()=>{ p.style.transition = 'opacity .45s, transform .45s'; p.style.opacity = 1; p.style.transform = 'translateY(0)';});
+    }
+
+    // Generate many lines (but gently, to keep UI responsive)
+    function generateMany(){
+      const count = Math.max(1, Math.min(5000, Number(document.getElementById('line-count').value || 250)));
+      const custom = document.getElementById('prompt-custom').value || '';
+      // If user asks for extremely large amounts (e.g., >2000) we warn/prompt; but proceed anyway
+      const batch = 60; // lines per animation frame batch
+      let generated = 0;
+      const startTime = Date.now();
+
+      function produceChunk(){
+        const chunk = Math.min(batch, count - generated);
+        for(let i=0;i<chunk;i++){
+          const line = generateLine(custom);
+          appendLineToStream(line);
+          generated++;
+        }
+        // small visual burst occasionally
+        if(generated % 80 === 0) { burstHearts(7); }
+        if(generated < count){
+          // yield to UI
+          setTimeout(produceChunk, 40);
+        } else {
+          // done
+          console.info(`Generado ${count} líneas en ${Date.now()-startTime} ms`);
+          // subtle celebratory confetti
+          burstConfetti();
+        }
+      }
+      produceChunk();
+    }
+
+    function appendCustom(){
+      const text = document.getElementById('prompt-custom').value || '';
+      if(!text.trim()) return;
+      appendLineToStream(generateLine(text));
+    }
+
+    function clearStream(){
+      streamBox.innerHTML = '';
+    }
+
+    // Download the current letter as a text file
+    function downloadLetter(){
+      const lines = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent.trim()).join('\n\n');
+      const blob = new Blob([lines || ''], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(nameMeInput.value||'Carta')}_a_${(nameThemInput.value||'Aerlen')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Modal controls
+    function openModal(type){
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+      modalContent.textContent = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent).join('\\n\\n');
+      // focus for accessibility
+      setTimeout(()=>modal.querySelector('.sheet').focus?.(), 50);
+    }
+    function closeModal(){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden','true');
+    }
+
+    // ---- HEART INTERACTIONS ----
+    const mainHeart = document.getElementById('main-heart');
+    function toggleHeart(){
+      heartActive = !heartActive;
+      mainHeart.classList.toggle('active', heartActive);
+      if(heartActive){
+        alterSimulation('orbit');
+        burstHearts(18);
+      } else {
+        alterSimulation('gentle');
+      }
+    }
+
+    // create tiny heart element at position
+    function spawnTinyHeart(x,y, color){
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('viewBox','0 0 32 29.6');
+      svg.setAttribute('class','tiny-heart');
+      svg.style.left = x+'px';
+      svg.style.top = y+'px';
+      svg.style.width = (8 + Math.random()*18) + 'px';
+      svg.style.height = (8 + Math.random()*18) + 'px';
+      svg.style.opacity = 0.95;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M16,28.1L3.4,15.5C0.3,12.4,0.3,7.3,3.4,4.2c3.1-3.1,8.1-3.1,11.2,0l1.4,1.4l1.4-1.4c3.1-3.1,8.1-3.1,11.2,0c3.1,3.1,3.1,8.1,0,11.2L16,28.1z');
+      path.setAttribute('fill', color || '#ff1461');
+      svg.appendChild(path);
+      document.body.appendChild(svg);
+      const vx = (Math.random()-0.5) * 4;
+      const vy = - (4 + Math.random()*4);
+      const rot = (Math.random()-0.5)*60;
+      let life = 0;
+      function frame(){
+        life++;
+        svg.style.transform = `translate(${vx*life}px, ${vy*life + 0.5*0.1*life*life}px) rotate(${rot*life/5}deg)`;
+        svg.style.opacity = Math.max(0, 0.95 - life*0.02);
+        if(life>120){
+          svg.remove();
+        } else requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function burstHearts(n=8){
+      for(let i=0;i<n;i++){
+        const x = window.innerWidth*0.5 + (Math.random()-0.5)*220;
+        const y = window.innerHeight*0.45 + (Math.random()-0.5)*140;
+        spawnTinyHeart(x,y, Math.random()>0.5 ? '#ff1461' : '#e5c158');
+      }
+    }
+
+    // ---- CONFETTI ----
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+    confettiCanvas.width = innerWidth;
+    confettiCanvas.height = innerHeight;
+    let confettiParticles = [];
+
+    window.addEventListener('resize', ()=>{ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight });
+
+    function burstConfetti(){
+      const count = 80 + Math.floor(Math.random()*60);
+      for(let i=0;i<count;i++){
+        confettiParticles.push({
+          x: Math.random()*confettiCanvas.width,
+          y: Math.random()*confettiCanvas.height - 50,
+          vx: (Math.random()-0.5)*6,
+          vy: 2 + Math.random()*4,
+          size: 6 + Math.random()*8,
+          color: Math.random()>0.5 ? '#ff1461' : '#e5c158',
+          rot: Math.random()*360,
+          speed: 0.02 + Math.random()*0.05
+        });
+      }
+      // animate for a while
+      if(!confettiLooping) runConfettiLoop();
+    }
+
+    let confettiLooping = false;
+    function runConfettiLoop(){
+      confettiLooping = true;
+      const t0 = performance.now();
+      function loop(){
+        confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        for(let i=confettiParticles.length-1;i>=0;i--){
+          const p = confettiParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.08; // gravity
+          p.rot += p.speed*10;
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rot * Math.PI/180);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+          confettiCtx.restore();
+          if(p.y > confettiCanvas.height + 40 || p.x < -40 || p.x > confettiCanvas.width+40){
+            confettiParticles.splice(i,1);
+          }
+        }
+        if(confettiParticles.length>0){
+          requestAnimationFrame(loop);
+        } else {
+          confettiLooping = false;
+          confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    // ---- SIMPLE VISUAL PARTICLES (on background canvas) ----
+    const bgCanvas = document.getElementById('webgl-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    function resizeBg(){ bgCanvas.width = innerWidth; bgCanvas.height = innerHeight }
+    resizeBg();
+    window.addEventListener('resize', resizeBg);
+
+    let particles = [];
+    function initBgParticles(n=120){
+      particles = [];
+      for(let i=0;i<n;i++){
+        particles.push({
+          x: Math.random()*bgCanvas.width,
+          y: Math.random()*bgCanvas.height,
+          r: Math.random()*2.4 + 0.6,
+          vx: (Math.random()-0.5)*0.3,
+          vy: (Math.random()*0.6 + 0.2),
+          color: Math.random()>0.5 ? '#ff1461' : '#e5c158',
+          alpha: 0.12 + Math.random()*0.4
+        });
+      }
+    }
+    initBgParticles(160);
+
+    function animateBg(){
+      bgCtx.fillStyle = 'rgba(5,4,9,0.12)';
+      bgCtx.fillRect(0,0,bgCanvas.width, bgCanvas.height);
+      particles.forEach(p=>{
+        p.x += p.vx;
+        p.y += p.vy;
+        if(p.y > bgCanvas.height + 20) { p.y = -10; p.x = Math.random()*bgCanvas.width; }
+        bgCtx.globalAlpha = p.alpha;
+        if(p.r > 1.8){
+          bgCtx.beginPath(); bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2); bgCtx.fill();
+        } else {
+          bgCtx.fillRect(p.x,p.y,p.r,p.r*0.6);
+        }
+      });
+      requestAnimationFrame(animateBg);
+    }
+    animateBg();
+
+    // ---- SIMPLE AUDIO SYNTH (WebAudio) ----
+    function ensureAudioContext(){
+      if(!audioContext){
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function startSynth(){
+      ensureAudioContext();
+      if(synthNodes) return;
+      const ctx = audioContext;
+      const master = ctx.createGain(); master.gain.value = Number(synthVolumeInput.value || 0.3);
+      master.connect(ctx.destination);
+
+      // create subtle pad: three detuned oscillators + lowpass + tremolo
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), o3 = ctx.createOscillator();
+      o1.type = 'sine'; o2.type = 'sine'; o3.type = 'sine';
+      o1.frequency.value = 220; o2.frequency.value = 277.18; o3.frequency.value = 329.63; // A3, C#4, E4 -> A major chord
+      o2.detune.value = 8; o3.detune.value = -6;
+
+      const amp1 = ctx.createGain(); amp1.gain.value = 0.0;
+      const amp2 = ctx.createGain(); amp2.gain.value = 0.0;
+      const amp3 = ctx.createGain(); amp3.gain.value = 0.0;
+
+      // lowpass filter for warmth
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1200;
+      // slight tremolo
+      const trem = ctx.createOscillator(); trem.type = 'sine'; trem.frequency.value = 0.25;
+      const tremGain = ctx.createGain(); tremGain.gain.value = 0.25;
+
+      o1.connect(amp1); o2.connect(amp2); o3.connect(amp3);
+      amp1.connect(lp); amp2.connect(lp); amp3.connect(lp);
+      lp.connect(master);
+
+      trem.connect(tremGain);
+      tremGain.connect(master.gain);
+
+      // envelope
+      const now = ctx.currentTime;
+      amp1.gain.setValueAtTime(0, now); amp1.gain.linearRampToValueAtTime(0.26, now+3);
+      amp2.gain.setValueAtTime(0, now); amp2.gain.linearRampToValueAtTime(0.22, now+3);
+      amp3.gain.setValueAtTime(0, now); amp3.gain.linearRampToValueAtTime(0.18, now+3);
+
+      o1.start(); o2.start(); o3.start(); trem.start();
+
+      synthNodes = { ctx, o1,o2,o3, amp1,amp2,amp3, lp, trem, tremGain, master };
+      musicOn = true; musicState.textContent = 'On';
+    }
+
+    function stopSynth(){
+      if(!synthNodes) return;
+      const {ctx, o1,o2,o3, amp1,amp2,amp3, master} = synthNodes;
+      const now = ctx.currentTime;
+      amp1.gain.cancelScheduledValues(now); amp2.gain.cancelScheduledValues(now); amp3.gain.cancelScheduledValues(now);
+      amp1.gain.linearRampToValueAtTime(0, now+1.4);
+      amp2.gain.linearRampToValueAtTime(0, now+1.4);
+      amp3.gain.linearRampToValueAtTime(0, now+1.4);
+      setTimeout(()=>{
+        try{ o1.stop(); o2.stop(); o3.stop(); } catch(e){}
+        synthNodes = null;
+        musicOn = false; musicState.textContent = 'Off';
+      }, 1600);
+    }
+
+    synthVolumeInput.addEventListener('input', ()=>{
+      if(synthNodes) synthNodes.master.gain.value = Number(synthVolumeInput.value);
+    });
+
+    // ---- USER AUDIO FILE LOADING ----
+    function loadUserFile(event){
+      const file = event.target.files[0];
+      if(!file) return;
+      if(userAudioElement){
+        userAudioElement.pause(); userAudioElement.remove();
+      }
+      const url = URL.createObjectURL(file);
+      userAudioElement = new Audio(url);
+      userAudioElement.loop = true;
+      userAudioElement.volume = 0.45;
+      userAudioElement.play().catch(()=>{ /* autoplay blocked: user interaction required */});
+      musicOn = true; musicState.textContent = 'On (file)';
+      // stop synth if active
+      stopSynth();
+    }
+
+    function toggleMusic(){
+      if(userAudioElement && !userAudioElement.paused){
+        userAudioElement.pause();
+        musicOn = false; musicState.textContent = 'Off';
+      } else if(userAudioElement){
+        userAudioElement.play();
+        musicOn = true; musicState.textContent = 'On (file)';
+      } else {
+        // toggle synth
+        if(synthNodes) stopSynth(); else startSynth();
+      }
+    }
+
+    // ---- SIMPLE MOTION SIMULATION (affects particles) ----
+    let simMode = 'gentle';
+    function alterSimulation(mode){
+      simMode = mode;
+      if(mode === 'orbit'){
+        burstHearts(12);
+        // quick visual zoom
+        document.querySelector('.container').style.transform = 'scale(1.01)';
+        setTimeout(()=>document.querySelector('.container').style.transform = 'scale(1)', 700);
+      }
+    }
+
+    // ---- KEYBOARD SHORTCUTS ----
+    window.addEventListener('keydown', (e)=>{
+      if(e.key.toLowerCase() === 'h'){ toggleHeart(); }
+      if(e.key.toLowerCase() === 'm'){ toggleMusic(); }
+      if(e.key.toLowerCase() === 'g'){ generateMany(); }
+      if(e.key === 'Escape'){ closeModal(); }
+    });
+
+    // ---- INITIAL PRESET: generate a sweet starter letter (moderate size) ----
+    function seedLetter(){
+      const intro = [
+        "Parecía un entorno aleatorio... nos conocimos en <em>Roblox</em> como una casualidad digital entre millones de servidores.",
+        "Pero el código cambió de dirección. De avatares pasamos a realidades, rompiendo la pantalla para fusionar nuestros mundos.",
+        "Hoy ya no quedan píxeles fríos. Ahora compartimos <span class='highlight'>tiempo real, amor puro, ternura</span> sin filtros...",
+        "...y una <span class='highlight'>intimidad</span> tan absoluta que redefine todo nuestro universo. Eres mi presente eterno, Aerlen."
+      ];
+      clearStream();
+      intro.forEach(t=>{ const p=document.createElement('p'); p.innerHTML=t; streamBox.appendChild(p); });
+    }
+    seedLetter();
+
+    // ---- MOUSE INTERACTION: click anywhere for small heart burst ----
+    window.addEventListener('click', (e)=>{
+      // only create if click not on input or button
+      const tag = e.target.tagName.toLowerCase();
+      if(['input','button','textarea','a','svg','path','select','label'].includes(tag)) return;
+      burstHearts(4);
+    });
+
+    // ---- Modal escape and click outside to close ----
+    modal.addEventListener('click', (e)=>{
+      if(e.target === modal) closeModal();
+    });
+
+    // ---- Composer open (simple prompt modal for now) ----
+    function openComposer(){
+      // scroll to panel's prompt area
+      document.getElementById('prompt-custom').focus();
+    }
+
+    // ---- Automatic long generation example helper ----
+    // If user wants "unas 1500 lineas", we provide a helper that can generate N lines via generateMany()
+    // Example usage: set line-count to 1500 and click Generar.
+    // For convenience, we can provide a quick function:
+    function generate1500(){
+      document.getElementById('line-count').value = 1500;
+      generateMany();
+    }
+
+    // ---- Accessibility: ensure focusable region and focus outline for keyboard users ----
+    streamBox.setAttribute('tabindex', '0');
+
+    // ---- Add little sample of run-time long expansion (disabled by default) ----
+    // Uncomment to auto-generate many lines on load (caution: heavy).
+    // setTimeout(()=>{ /*generate1500();*/ }, 1200);
+
+    // ---- Explain to the user in console ----
+    console.info('Carta interactiva cargada. Usa los controles de la derecha para generar líneas, activar música o subir tu canción. Atajos: H, M, G.');
+
+    // ---- small fallback: keep background particles responsive to mouse ----
+    window.addEventListener('mousemove', (e)=>{
+      const cx = e.clientX / innerWidth;
+      const cy = e.clientY / innerHeight;
+      particles.forEach((p,i)=>{
+        p.vx += (cx - 0.5) * 0.01;
+        p.vy += (cy - 0.5) * 0.01;
+        p.vx *= 0.995; p.vy *= 0.998;
+      });
+    });
+
+  </script>
+</body>
+</html>
