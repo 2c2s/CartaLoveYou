@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AERLEN — Carta Interactiva (Mejorada)</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Plus+Jakarta+Sans:wght@200;300;400;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --gold:#e5c158;
+      --pink:#ff1461;
+      --bg:#050409;
+      --panel:rgba(11,9,19,0.52);
+      --glass-border:rgba(255,255,255,0.06);
+      --muted:rgba(255,255,255,0.65);
+      --accent:linear-gradient(90deg,#ff1461,#e5c158);
+      --radius:18px;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:'Plus Jakarta Sans',sans-serif;
+      background:
+        radial-gradient(1200px 600px at 5% 10%, rgba(229,193,88,0.04), transparent),
+        radial-gradient(900px 500px at 95% 90%, rgba(255,20,97,0.02), transparent),
+        var(--bg);
+      color:#fff;
+      overflow:auto;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+    }
+
+    /* Canvas backgrounds */
+    #webgl-canvas, #confetti-canvas {
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:0;
+      pointer-events:none;
+    }
+
+    /* Layout */
+    .wrap{
+      position:relative;
+      z-index:2;
+      width:100%;
+      max-width:1200px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1fr 380px;
+      gap:26px;
+      align-items:start;
+    }
+
+    /* Card left */
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:26px;
+      padding:28px;
+      border:1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      position:relative;
+      overflow:hidden;
+      min-height:520px;
+    }
+
+    .brand{font-family:'Cinzel',serif; letter-spacing:6px; color:var(--gold); font-size:0.78rem; margin-bottom:10px;}
+    .title{
+      font-family:'Cinzel',serif;
+      margin:2px 0 14px;
+      font-size:2.1rem;
+      letter-spacing:2px;
+      background:linear-gradient(180deg,#fff 35%, rgba(255,255,255,0.55));
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+
+    .top-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    .lux-btn{
+      appearance:none;
+      border:1px solid var(--glass-border);
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      color:var(--muted);
+      padding:10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      letter-spacing:0.6px;
+      transition:all .22s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:0.92rem;
+    }
+    .lux-btn:hover{transform:translateY(-4px); color:#fff; border-color:rgba(255,20,97,0.3)}
+    .lux-btn.secondary{background:transparent; border:1px dashed rgba(255,255,255,0.04)}
+    .small{padding:8px 10px; font-size:0.82rem}
+
+    .narrative{
+      font-size:1.03rem;
+      line-height:1.7;
+      color:rgba(255,255,255,0.92);
+      min-height:300px;
+      max-height:62vh;
+      overflow:auto;
+      padding-right:8px;
+      margin-top:8px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+      border-radius:12px;
+      padding:18px;
+      border:1px solid rgba(255,255,255,0.02);
+    }
+    .narrative p{margin:0 0 10px 0}
+    .narrative em{font-family:'Playfair Display', serif; color:var(--gold); font-style:italic}
+    .narrative .highlight{ color:var(--pink); text-shadow:0 0 12px rgba(255,20,97,0.12)}
+
+    /* small metadata row */
+    .meta-row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+    .avatar{
+      width:52px;height:52px;border-radius:12px;background:linear-gradient(180deg,#ff9ab1,#ffd87a);
+      display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#050409;box-shadow:0 6px 20px rgba(0,0,0,0.45);
+    }
+
+    /* right panel */
+    .panel{
+      background: linear-gradient(180deg, rgba(10,8,18,0.96), rgba(8,6,14,0.98));
+      border-radius:16px;
+      padding:18px;
+      border:1px solid rgba(255,255,255,0.03);
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:stretch;
+    }
+    .panel h3{font-family:'Cinzel',serif; margin:0; font-size:1rem; color:var(--gold)}
+    label{font-size:0.8rem; color:var(--muted)}
+    input[type="text"], input[type="number"], textarea, select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent;
+      color:#fff;
+      outline:none;
+      font-size:0.92rem;
+    }
+    textarea{min-height:100px; resize:vertical}
+
+    .small-muted{font-size:0.78rem; color:rgba(255,255,255,0.5)}
+    .row{display:flex;gap:8px; align-items:center}
+
+    /* heart */
+    .core-heart{
+      width:64px;height:64px;cursor:pointer; flex:0 0 auto;
+      filter:drop-shadow(0 0 16px rgba(255,20,97,0.14));
+      transition:transform .25s ease;
+    }
+    .core-heart.active{transform:scale(1.12) rotate(-6deg)}
+    .footer-actions{display:flex;gap:10px; align-items:center; margin-top:auto}
+
+    /* Modal */
+    .modal{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:40;
+      backdrop-filter: blur(8px);
+    }
+    .modal.show{display:flex}
+    .modal .sheet{
+      width:min(1000px,96%); max-height:90vh; overflow:auto;
+      padding:20px; border-radius:16px; background:linear-gradient(180deg, rgba(10,8,18,0.96), rgba(8,6,14,0.98));
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow:0 30px 90px rgba(0,0,0,0.8);
+    }
+
+    /* tiny hearts and particles */
+    .tiny-heart{
+      position:absolute;
+      pointer-events:none;
+      width:14px;height:14px;
+      transform:translate(-50%,-50%) rotate(12deg);
+      filter:drop-shadow(0 6px 12px rgba(255,20,97,0.18));
+      will-change:transform,opacity;
+      z-index:55;
+    }
+
+    /* utility */
+    .muted{color:rgba(255,255,255,0.65)}
+    hr.sep{border:none;border-top:1px solid rgba(255,255,255,0.03);margin:8px 0}
+
+    /* theme variants via data-theme on body */
+    body[data-theme="light"]{
+      color:#111;
+      background:linear-gradient(180deg,#fff,#f2f2f5);
+    }
+    body[data-theme="light"] .card{background:#ffffffcc; color:#111; border-color:rgba(0,0,0,0.06)}
+    body[data-theme="light"] .panel{background:#fff; color:#111}
+    body[data-theme="light"] input, body[data-theme="light"] textarea{color:#111; background:transparent; border-color:rgba(0,0,0,0.06)}
+
+    /* responsive */
+    @media (max-width:980px){
+      .wrap{grid-template-columns:1fr; padding-bottom:40px}
+      .narrative{min-height:220px; max-height:46vh}
+      .panel{order:2}
+    }
+
+    :focus{outline:3px solid rgba(229,193,88,0.14); outline-offset:2px}
+  </style>
+</head>
+<body data-theme="dark">
+  <!-- Background canvases -->
+  <canvas id="webgl-canvas"></canvas>
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="wrap" role="main" aria-label="Carta Interactiva Privada">
+    <!-- LEFT: main card / preview -->
+    <section class="card" aria-labelledby="title-left">
+      <div class="brand">PRIVATE ARCHIVE</div>
+      <h1 id="title-left" class="title">Aerlen</h1>
+
+      <div class="top-controls" aria-hidden="false">
+        <!-- Heart -->
+        <svg class="core-heart" id="main-heart" viewBox="0 0 32 29.6" onclick="toggleHeart()" aria-hidden="true">
+          <path d="M16,28.1L3.4,15.5C0.3,12.4,0.3,7.3,3.4,4.2c3.1-3.1,8.1-3.1,11.2,0l1.4,1.4l1.4-1.4c3.1-3.1,8.1-3.1,11.2,0c3.1,3.1,3.1,8.1,0,11.2L16,28.1z"></path>
+        </svg>
+
+        <button class="lux-btn" id="btn-music" onclick="toggleMusic()" title="Alternar música">Música: <span id="music-state">Off</span></button>
+
+        <button class="lux-btn" onclick="openComposer()" title="Escribe un texto romántico">Componer</button>
+        <button class="lux-btn" onclick="downloadLetter()" title="Descargar carta como texto">Descargar</button>
+        <button class="lux-btn" onclick="copyToClipboard()">Copiar</button>
+        <button class="lux-btn secondary" onclick="openModal('full')" title="Ver carta completa">Ver Completa</button>
+      </div>
+
+      <div id="stream-box" class="narrative" tabindex="0" aria-live="polite">
+        <!-- contenido dinámico -->
+      </div>
+
+      <div class="meta-row" style="margin-top:12px">
+        <div class="avatar" id="avatar-initials">A</div>
+        <div>
+          <div style="font-weight:700" id="meta-title">Carta para Aerlen</div>
+          <div class="small-muted" id="meta-sub">Generada & guardada localmente — privada</div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+          <button class="lux-btn small" onclick="speakToggle()">Leer</button>
+          <button class="lux-btn small" onclick="printLetter()">Imprimir/Guardar PDF</button>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <div class="small-muted">Pulsa el corazón o usa el generador para llenar la carta con más amor. Atajos: H = corazón, M = música, G = generar, S = compartir</div>
+      </div>
+    </section>
+
+    <!-- RIGHT: controls -->
+    <aside class="panel" aria-labelledby="panel-title">
+      <h3 id="panel-title">Controles & Creación</h3>
+
+      <label>(Tu nombre)</label>
+      <input id="name-me" type="text" placeholder="Tu nombre" value="Mi amor">
+
+      <label>Nombre de ella/él</label>
+      <input id="name-them" type="text" placeholder="Aerlen" value="Aerlen">
+
+      <label>Generar líneas (cantidad)</label>
+      <div class="row">
+        <input id="line-count" type="number" min="1" max="5000" step="1" value="180" />
+        <button class="lux-btn small" onclick="generateMany()">Generar</button>
+        <button class="lux-btn small secondary" onclick="generateStreamToggle()" id="stream-toggle-btn">Stream</button>
+      </div>
+
+      <label class="small-muted">Personaliza frase / usa {me} y {them}</label>
+      <textarea id="prompt-custom" placeholder="Puedes escribir una frase o dejar vacío para usar el generador automático"></textarea>
+
+      <div class="row" style="gap:8px">
+        <button class="lux-btn" onclick="appendCustom()">Añadir al final</button>
+        <button class="lux-btn secondary" onclick="clearStream()">Limpiar</button>
+        <button class="lux-btn" onclick="prependSample()">Insertar inicio</button>
+      </div>
+
+      <hr class="sep">
+
+      <label>Audio: sintetizador ambiental (sin archivos)</label>
+      <div class="row" style="gap:6px;">
+        <button class="lux-btn small" onclick="startSynth()">Play Pad</button>
+        <button class="lux-btn small" onclick="stopSynth()">Stop</button>
+        <div style="flex:1">
+          <label class="small-muted">Volumen</label>
+          <input id="synth-volume" type="range" min="0" max="1" step="0.01" value="0.28" />
+        </div>
+      </div>
+
+      <label class="small-muted">Sube tu canción (opcional)</label>
+      <input id="audio-file" type="file" accept="audio/*" onchange="loadUserFile(event)" />
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="lux-btn" onclick="burstHearts(12)">Explosión de Corazones</button>
+        <button class="lux-btn" onclick="burstConfetti()">Confeti</button>
+      </div>
+
+      <hr class="sep">
+
+      <label>Reproductor por defecto (Lana Del Rey — "Brooklyn Baby")</label>
+      <div class="row" style="gap:8px">
+        <button class="lux-btn" onclick="loadDefaultYT()" id="load-default-yt">Cargar canción por defecto</button>
+        <button class="lux-btn secondary" onclick="openExternalYT()">Abrir en YouTube</button>
+      </div>
+      <div id="yt-container" style="margin-top:8px; display:none; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.03)"></div>
+
+      <hr class="sep">
+
+      <label>Export / Share</label>
+      <div class="row">
+        <button class="lux-btn" onclick="copyToClipboard()">Copiar</button>
+        <button class="lux-btn" onclick="downloadLetter()">Descargar .txt</button>
+        <button class="lux-btn" onclick="printLetter()">Imprimir / PDF</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="lux-btn" onclick="shareAsURL()">Copiar enlace (compartir)</button>
+        <button class="lux-btn secondary" onclick="loadFromURL()">Cargar desde enlace</button>
+      </div>
+
+      <hr class="sep">
+
+      <label>TTS (Texto a voz)</label>
+      <div class="row" style="gap:8px; align-items:center;">
+        <button class="lux-btn small" onclick="speakNow()">Leer ahora</button>
+        <button class="lux-btn small" onclick="stopSpeak()">Parar</button>
+        <div style="flex:1">
+          <label class="small-muted">Velocidad</label>
+          <input id="tts-rate" type="range" min="0.6" max="1.8" step="0.05" value="0.96" />
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="lux-btn" onclick="toggleTheme()">Cambiar tema</button>
+        <button class="lux-btn secondary" onclick="clearLocal()">Reset local</button>
+      </div>
+
+      <div style="margin-top:8px;">
+        <div class="badge">Atajos: H,M,G,S. Guardado automático activado.</div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- Modal: full letter -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="sheet" role="document" tabindex="-1">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+        <h2 style="margin:0;font-family:'Cinzel',serif">Carta Completa</h2>
+        <div style="display:flex;gap:8px">
+          <button class="lux-btn" onclick="closeModal()">Cerrar</button>
+          <button class="lux-btn" onclick="downloadLetter()">Descargar</button>
+        </div>
+      </div>
+      <div id="modal-content" style="white-space:pre-wrap; line-height:1.7;"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ======== Estado y referencias ======== */
+    const streamBox = document.getElementById('stream-box');
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modal-content');
+    const nameMeInput = document.getElementById('name-me');
+    const nameThemInput = document.getElementById('name-them');
+    const synthVolumeInput = document.getElementById('synth-volume');
+    const musicState = document.getElementById('music-state');
+    const avatarInitials = document.getElementById('avatar-initials');
+
+    let heartActive = false;
+    let audioContext = null;
+    let synthNodes = null;
+    let userAudioElement = null;
+    let musicOn = false;
+    let streaming = false;
+    let speakUtter = null;
+
+    // default YouTube video id for "Brooklyn Baby"
+    // NOTE: we DO NOT embed automatically; the iframe loads only on user click for privacy/autoplay reasons.
+    const DEFAULT_YT_ID = 'T5xcnjAG8pE'; // user may replace if needed
+    const ytContainer = document.getElementById('yt-container');
+
+    /* ======== Utilidades ======== */
+    function esc(s){ if(!s) return ''; return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+    function saveLocal(){
+      try{
+        const data = {
+          nameMe: nameMeInput.value,
+          nameThem: nameThemInput.value,
+          content: Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent),
+          customPrompt: document.getElementById('prompt-custom').value,
+          lineCount: document.getElementById('line-count').value,
+          theme: document.body.dataset.theme || 'dark'
+        };
+        localStorage.setItem('aerlen_letter_v1', JSON.stringify(data));
+      }catch(e){ console.warn('No se pudo guardar localmente', e) }
+    }
+    function loadLocal(){
+      try{
+        const raw = localStorage.getItem('aerlen_letter_v1');
+        if(!raw) return false;
+        const data = JSON.parse(raw);
+        nameMeInput.value = data.nameMe || nameMeInput.value;
+        nameThemInput.value = data.nameThem || nameThemInput.value;
+        document.getElementById('prompt-custom').value = data.customPrompt || '';
+        document.getElementById('line-count').value = data.lineCount || 180;
+        if(data.content && data.content.length){
+          clearStream();
+          data.content.forEach(line => appendLineToStream(esc(line)));
+        }
+        document.body.dataset.theme = data.theme || 'dark';
+        updateAvatar();
+        return true;
+      }catch(e){ console.warn('Error load local', e); return false }
+    }
+    // autosave debounce
+    let saveTimer = null;
+    function scheduleSave(){
+      if(saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(()=>{ saveLocal(); saveTimer=null; }, 600);
+    }
+    // call from user interactions
+    ['input','change'].forEach(evt=>{
+      [nameMeInput, nameThemInput, document.getElementById('prompt-custom')].forEach(el=>{
+        el.addEventListener(evt, ()=>{ scheduleSave(); updateAvatar(); });
+      });
+    });
+    streamBox.addEventListener('DOMNodeInserted', scheduleSave);
+
+    /* ======== Generator data ======== */
+    const fragments = {
+      start: [
+        "En la superficie de un día cualquiera",
+        "Entre lo frágil y lo eterno",
+        "En cada latido mío",
+        "En la dirección de tu mirada",
+        "Cuando el mundo se ralentiza",
+        "Bajo las luces de neón o la calma del alba",
+        "En el silencio que comparten nuestras manos",
+        "Mientras el código se vuelve piel",
+        "En la memoria donde guardo tus risas",
+        "En el borde de la madrugada",
+        "Detrás de la risa hay un rumor de hogar",
+        "A la sombra de nuestras conversaciones",
+        "En el susurro que haces antes de dormir"
+      ],
+      middle: [
+        "encuentro una constelación que lleva tu nombre",
+        "tu risa cambia el clima de mi pecho",
+        "tu voz escribe poemas en el aire",
+        "cada segundo es un pacto de ternura",
+        "se vuelve costumbre desearte al despertar",
+        "se hace hogar la sombra de tu abrazo",
+        "tus huellas son la cartografía de mi calma",
+        "tu presencia transforma la lógica en milagro",
+        "mi tiempo se reinventa cuando pronuncias mi nombre",
+        "me recuerdas que el mundo puede ser gentil",
+        "eres el mapa que me guía sin pedir permiso"
+      ],
+      end: [
+        "y hago de ese latido la razón de mi existencia.",
+        "porque tu amor no conoce fronteras ni errores.",
+        "y quedo, para siempre, en el lugar donde estás tú.",
+        "y prometo cuidar ese fuego con delicadeza ilesa.",
+        "y espero, con paciencia, dibujar contigo mañana tras mañana.",
+        "y aprenderé tus silencios como mapas sagrados.",
+        "y seré la promesa que sostenga tus días nublados.",
+        "y renaceré en cada beso que nos regale la vida.",
+        "porque contigo, mi universo eligió quedarse.",
+        "y todo lo demás, al lado tuyo, se vuelve posible."
+      ],
+      connectors: ["—","·","•",";"]
+    };
+
+    function generateLine(custom){
+      const nameMe = esc(nameMeInput.value || "Yo");
+      const nameThem = esc(nameThemInput.value || "Tú");
+      if(custom && custom.trim()){
+        return custom.replace(/\{me\}/gi, nameMe).replace(/\{them\}/gi, nameThem);
+      }
+      const s = fragments.start[Math.floor(Math.random()*fragments.start.length)];
+      const m = fragments.middle[Math.floor(Math.random()*fragments.middle.length)];
+      const e = fragments.end[Math.floor(Math.random()*fragments.end.length)];
+      const connector = fragments.connectors[Math.floor(Math.random()*fragments.connectors.length)];
+      return `${s} ${m} ${connector} ${e}`;
+    }
+
+    /* ======== UI / DOM helpers ======== */
+    function appendLineToStream(text){
+      const p = document.createElement('p');
+      p.innerHTML = text;
+      p.style.opacity = 0;
+      p.style.transform = 'translateY(6px)';
+      streamBox.appendChild(p);
+      // small stagger
+      requestAnimationFrame(()=>{ p.style.transition='opacity .45s, transform .45s'; p.style.opacity=1; p.style.transform='translateY(0)'; });
+      streamBox.scrollTop = streamBox.scrollHeight;
+    }
+
+    function clearStream(){
+      streamBox.innerHTML = '';
+      scheduleSave();
+    }
+
+    function prependSample(){
+      const intro = [
+        "Parecía un entorno aleatorio... nos conocimos en un rincón improbable del mundo digital.",
+        "Pero el código cambió de dirección: de avatares pasamos a realidades.",
+        "Ahora compartimos tiempo real, ternura y una intimidad que redefine el universo."
+      ];
+      intro.forEach(t=>{ appendLineToStream(t); });
+      scheduleSave();
+    }
+
+    function appendCustom(){
+      const text = document.getElementById('prompt-custom').value || '';
+      if(!text.trim()) return;
+      appendLineToStream(generateLine(text));
+      scheduleSave();
+    }
+
+    /* ======== Large generation (with batching & safe-mode) ======== */
+    function generateMany(){
+      const count = Math.max(1, Math.min(20000, Number(document.getElementById('line-count').value || 180)));
+      const custom = document.getElementById('prompt-custom').value || '';
+      if(count>2000 && !confirm(`Has solicitado generar ${count} líneas. Esto puede ser pesado. Continuar?`)){
+        return;
+      }
+      const batch = 80;
+      let generated = 0;
+      streaming = false;
+      const startTime = Date.now();
+      function produceChunk(){
+        const chunk = Math.min(batch, count - generated);
+        for(let i=0;i<chunk;i++){
+          const line = generateLine(custom);
+          appendLineToStream(line);
+          generated++;
+        }
+        if(generated % 120 === 0) burstHearts(6);
+        if(generated < count){
+          setTimeout(produceChunk, 30);
+        } else {
+          console.info(`Generado ${count} líneas en ${Date.now()-startTime} ms`);
+          burstConfetti();
+          scheduleSave();
+        }
+      }
+      produceChunk();
+    }
+
+    /* ======== Stream generation (toggle) ======== */
+    let streamInterval = null;
+    function generateStreamToggle(){
+      if(streamInterval){
+        clearInterval(streamInterval);
+        streamInterval = null;
+        document.getElementById('stream-toggle-btn').textContent = 'Stream';
+        return;
+      }
+      const custom = document.getElementById('prompt-custom').value || '';
+      streamInterval = setInterval(()=>{
+        appendLineToStream(generateLine(custom));
+        if(Math.random()>0.85) burstHearts(3);
+      }, 350);
+      document.getElementById('stream-toggle-btn').textContent = 'Parar Stream';
+    }
+
+    /* ======== Download & copy & print ======== */
+    function downloadLetter(){
+      const lines = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent.trim()).join('\n\n');
+      const blob = new Blob([lines || ''], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeMe = (nameMeInput.value||'Carta').replace(/[^\w\d-_]/g,'_');
+      const safeThem = (nameThemInput.value||'Aerlen').replace(/[^\w\d-_]/g,'_');
+      a.download = `${safeMe}_a_${safeThem}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyToClipboard(){
+      try{
+        const lines = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent.trim()).join('\n\n');
+        await navigator.clipboard.writeText(lines || '');
+        alert('Carta copiada al portapapeles.');
+      }catch(e){
+        console.warn('Clipboard failed', e);
+        prompt('Copia manualmente este texto:', Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent.trim()).join('\n\n'));
+      }
+    }
+
+    function printLetter(){
+      const printWindow = window.open('', '_blank', 'noopener');
+      const html = `
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Imprimir Carta</title>
+            <style>
+              body{font-family: Georgia, serif; padding:40px; color:#222}
+              h1{font-family: 'Cinzel', serif; color:#b76e1e}
+              pre{white-space:pre-wrap; line-height:1.7; font-size:18px}
+            </style>
+          </head>
+          <body>
+            <h1>${esc(nameMeInput.value||'Carta')} → ${esc(nameThemInput.value||'Aerlen')}</h1>
+            <pre>${Array.from(streamBox.querySelectorAll('p')).map(p=>esc(p.textContent)).join('\\n\\n')}</pre>
+          </body>
+        </html>`;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      // give browser time to render
+      setTimeout(()=>printWindow.print(), 500);
+    }
+
+    /* ======== Modal ======== */
+    function openModal(){
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+      modalContent.textContent = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent).join('\n\n');
+      setTimeout(()=>modal.querySelector('.sheet').focus?.(), 60);
+    }
+    function closeModal(){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden','true');
+    }
+    window.addEventListener('keydown', e=>{
+      if(e.key.toLowerCase()==='h'){ toggleHeart(); }
+      if(e.key.toLowerCase()==='m'){ toggleMusic(); }
+      if(e.key.toLowerCase()==='g'){ generateMany(); }
+      if(e.key.toLowerCase()==='s'){ shareAsURL(); }
+      if(e.key === 'Escape'){ closeModal(); }
+    });
+    modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+
+    /* ======== Hearts & confetti (visuals) ======== */
+    function spawnTinyHeart(x,y, color){
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('viewBox','0 0 32 29.6');
+      svg.setAttribute('class','tiny-heart');
+      svg.style.left = x+'px';
+      svg.style.top = y+'px';
+      svg.style.width = (8 + Math.random()*18) + 'px';
+      svg.style.height = (8 + Math.random()*18) + 'px';
+      svg.style.opacity = 0.95;
+      svg.style.zIndex = 60;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M16,28.1L3.4,15.5C0.3,12.4,0.3,7.3,3.4,4.2c3.1-3.1,8.1-3.1,11.2,0l1.4,1.4l1.4-1.4c3.1-3.1,8.1-3.1,11.2,0c3.1,3.1,3.1,8.1,0,11.2L16,28.1z');
+      path.setAttribute('fill', color || '#ff1461');
+      svg.appendChild(path);
+      document.body.appendChild(svg);
+      const vx = (Math.random()-0.5) * 4;
+      const vy = - (4 + Math.random()*4);
+      const rot = (Math.random()-0.5)*60;
+      let life = 0;
+      function frame(){
+        life++;
+        svg.style.transform = `translate(${vx*life}px, ${vy*life + 0.5*0.12*life*life}px) rotate(${rot*life/5}deg)`;
+        svg.style.opacity = Math.max(0, 0.95 - life*0.02);
+        if(life>120){
+          svg.remove();
+        } else requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function burstHearts(n=8){
+      for(let i=0;i<n;i++){
+        const x = window.innerWidth*0.5 + (Math.random()-0.5)*260;
+        const y = window.innerHeight*0.45 + (Math.random()-0.5)*160;
+        spawnTinyHeart(x,y, Math.random()>0.6 ? '#ff1461' : '#e5c158');
+      }
+    }
+
+    // confetti canvas
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+    confettiCanvas.width = innerWidth;
+    confettiCanvas.height = innerHeight;
+    let confettiParticles = [];
+    window.addEventListener('resize', ()=>{ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight; });
+
+    function burstConfetti(){
+      const count = 80 + Math.floor(Math.random()*60);
+      for(let i=0;i<count;i++){
+        confettiParticles.push({
+          x: Math.random()*confettiCanvas.width,
+          y: Math.random()*confettiCanvas.height - 50,
+          vx: (Math.random()-0.5)*6,
+          vy: 2 + Math.random()*4,
+          size: 6 + Math.random()*10,
+          color: Math.random()>0.5 ? '#ff1461' : '#e5c158',
+          rot: Math.random()*360,
+          speed: 0.02 + Math.random()*0.06
+        });
+      }
+      if(!confettiLooping) runConfettiLoop();
+    }
+    let confettiLooping = false;
+    function runConfettiLoop(){
+      confettiLooping = true;
+      function loop(){
+        confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        for(let i=confettiParticles.length-1;i>=0;i--){
+          const p = confettiParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.08;
+          p.rot += p.speed*10;
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rot * Math.PI/180);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+          confettiCtx.restore();
+          if(p.y > confettiCanvas.height + 40 || p.x < -40 || p.x > confettiCanvas.width+40){
+            confettiParticles.splice(i,1);
+          }
+        }
+        if(confettiParticles.length>0){ requestAnimationFrame(loop); }
+        else { confettiLooping=false; confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height); }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    /* ======== Background particles (gentle) ======== */
+    const bgCanvas = document.getElementById('webgl-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    function resizeBg(){ bgCanvas.width = innerWidth; bgCanvas.height = innerHeight; }
+    resizeBg();
+    window.addEventListener('resize', resizeBg);
+
+    let particles = [];
+    function initBgParticles(n=140){
+      particles = [];
+      for(let i=0;i<n;i++){
+        particles.push({
+          x: Math.random()*bgCanvas.width,
+          y: Math.random()*bgCanvas.height,
+          r: Math.random()*2.4 + 0.6,
+          vx: (Math.random()-0.5)*0.3,
+          vy: (Math.random()*0.6 + 0.15),
+          color: Math.random()>0.6 ? '#ff1461' : '#e5c158',
+          alpha: 0.06 + Math.random()*0.34
+        });
+      }
+    }
+    initBgParticles(160);
+    function animateBg(){
+      bgCtx.fillStyle = 'rgba(5,4,9,0.12)';
+      bgCtx.fillRect(0,0,bgCanvas.width, bgCanvas.height);
+      particles.forEach(p=>{
+        p.x += p.vx;
+        p.y += p.vy;
+        if(p.y > bgCanvas.height + 20) { p.y = -10; p.x = Math.random()*bgCanvas.width; }
+        bgCtx.globalAlpha = p.alpha;
+        if(p.r > 1.8){
+          bgCtx.beginPath(); bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2); bgCtx.fill();
+        } else {
+          bgCtx.fillRect(p.x,p.y,p.r,p.r*0.6);
+        }
+      });
+      requestAnimationFrame(animateBg);
+    }
+    animateBg();
+
+    /* ======== Audio synth (WebAudio) ======== */
+    function ensureAudioContext(){
+      if(!audioContext){
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    function startSynth(){
+      ensureAudioContext();
+      if(synthNodes) return;
+      const ctx = audioContext;
+      const master = ctx.createGain(); master.gain.value = Number(synthVolumeInput.value || 0.3);
+      master.connect(ctx.destination);
+
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), o3 = ctx.createOscillator();
+      o1.type = 'sine'; o2.type = 'sine'; o3.type = 'sine';
+      o1.frequency.value = 220; o2.frequency.value = 277.18; o3.frequency.value = 329.63;
+      o2.detune.value = 8; o3.detune.value = -6;
+
+      const amp1 = ctx.createGain(); amp1.gain.value = 0.0;
+      const amp2 = ctx.createGain(); amp2.gain.value = 0.0;
+      const amp3 = ctx.createGain(); amp3.gain.value = 0.0;
+
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
+      const trem = ctx.createOscillator(); trem.type = 'sine'; trem.frequency.value = 0.25;
+      const tremGain = ctx.createGain(); tremGain.gain.value = 0.25;
+
+      o1.connect(amp1); o2.connect(amp2); o3.connect(amp3);
+      amp1.connect(lp); amp2.connect(lp); amp3.connect(lp);
+      lp.connect(master);
+
+      trem.connect(tremGain); tremGain.connect(master.gain);
+
+      const now = ctx.currentTime;
+      amp1.gain.setValueAtTime(0, now); amp1.gain.linearRampToValueAtTime(0.26, now+3);
+      amp2.gain.setValueAtTime(0, now); amp2.gain.linearRampToValueAtTime(0.22, now+3);
+      amp3.gain.setValueAtTime(0, now); amp3.gain.linearRampToValueAtTime(0.18, now+3);
+
+      o1.start(); o2.start(); o3.start(); trem.start();
+
+      synthNodes = { ctx, o1,o2,o3, amp1,amp2,amp3, lp, trem, tremGain, master };
+      musicOn = true; musicState.textContent = 'On (synth)';
+    }
+
+    function stopSynth(){
+      if(!synthNodes) return;
+      const { ctx, o1,o2,o3, amp1,amp2,amp3, master } = synthNodes;
+      const now = ctx.currentTime;
+      amp1.gain.cancelScheduledValues(now); amp2.gain.cancelScheduledValues(now); amp3.gain.cancelScheduledValues(now);
+      amp1.gain.linearRampToValueAtTime(0, now+1.4);
+      amp2.gain.linearRampToValueAtTime(0, now+1.4);
+      amp3.gain.linearRampToValueAtTime(0, now+1.4);
+      setTimeout(()=>{
+        try{ o1.stop(); o2.stop(); o3.stop(); } catch(e){}
+        synthNodes = null;
+        musicOn = false; musicState.textContent = 'Off';
+      }, 1600);
+    }
+
+    synthVolumeInput.addEventListener('input', ()=>{
+      if(synthNodes) synthNodes.master.gain.value = Number(synthVolumeInput.value);
+    });
+
+    /* ======== User audio file loading ======== */
+    function loadUserFile(event){
+      const file = event.target.files[0];
+      if(!file) return;
+      if(userAudioElement){
+        userAudioElement.pause(); userAudioElement.remove();
+      }
+      const url = URL.createObjectURL(file);
+      userAudioElement = new Audio(url);
+      userAudioElement.loop = true;
+      userAudioElement.volume = 0.45;
+      userAudioElement.play().catch(()=>{ /* autoplay blocked */ });
+      musicOn = true; musicState.textContent = 'On (file)';
+      stopSynth();
+    }
+
+    function toggleMusic(){
+      if(userAudioElement && !userAudioElement.paused){
+        userAudioElement.pause(); musicOn=false; musicState.textContent='Off';
+      } else if(userAudioElement){
+        userAudioElement.play(); musicOn=true; musicState.textContent='On (file)';
+      } else {
+        if(synthNodes) stopSynth(); else startSynth();
+      }
+    }
+
+    /* ======== YouTube default load (on demand) ======== */
+    function loadDefaultYT(){
+      if(ytContainer.dataset.loaded==='1') return;
+      // create iframe only after request
+      const iframe = document.createElement('iframe');
+      iframe.width = '100%';
+      iframe.height = '120';
+      iframe.src = `https://www.youtube.com/embed/${DEFAULT_YT_ID}?rel=0&modestbranding=1&autoplay=0&controls=1`;
+      iframe.frameBorder = 0;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      ytContainer.innerHTML = '';
+      ytContainer.appendChild(iframe);
+      ytContainer.style.display = 'block';
+      ytContainer.dataset.loaded = '1';
+      musicState.textContent = 'On (YouTube)';
+      // when user loads YT, stop synth
+      stopSynth();
+    }
+
+    function openExternalYT(){
+      window.open(`https://www.youtube.com/results?search_query=Lana+Del+Rey+Brooklyn+Baby`, '_blank', 'noopener');
+    }
+
+    /* ======== Simulation state alteration ======== */
+    function toggleHeart(){
+      heartActive = !heartActive;
+      document.getElementById('main-heart').classList.toggle('active', heartActive);
+      if(heartActive){
+        alterSimulation('orbit');
+        burstHearts(18);
+      } else {
+        alterSimulation('gentle');
+      }
+    }
+    function alterSimulation(mode){
+      if(mode==='orbit'){
+        document.querySelector('.card').style.transform = 'scale(1.01)';
+        setTimeout(()=>document.querySelector('.card').style.transform='scale(1)', 700);
+        // little orbit hearts
+        for(let i=0;i<6;i++){
+          setTimeout(()=>burstHearts(3), i*80);
+        }
+      }
+    }
+
+    // mouse click small heart
+    window.addEventListener('click', (e)=>{
+      const tag = e.target.tagName.toLowerCase();
+      if(['input','button','textarea','a','svg','path','select','label','iframe'].includes(tag)) return;
+      burstHearts(3);
+    });
+
+    /* ======== Text-to-speech (TTS) ======== */
+    function speakNow(){
+      const text = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent).join('\n\n');
+      if(!text) return alert('No hay texto para leer.');
+      stopSpeak();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'es-ES';
+      utter.rate = Number(document.getElementById('tts-rate').value || 0.95);
+      utter.onend = ()=>{ speakUtter = null; };
+      speechSynthesis.speak(utter);
+      speakUtter = utter;
+    }
+    function stopSpeak(){
+      if(speechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel();
+      speakUtter = null;
+    }
+    function speakToggle(){
+      if(speechSynthesis && speechSynthesis.speaking) stopSpeak();
+      else speakNow();
+    }
+
+    /* ======== Shareable URL (hash encode) ======== */
+    function shareAsURL(){
+      const content = Array.from(streamBox.querySelectorAll('p')).map(p=>p.textContent);
+      const payload = {
+        me: nameMeInput.value || '',
+        them: nameThemInput.value || '',
+        content,
+        prompt: document.getElementById('prompt-custom').value || ''
+      };
+      try{
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        const url = `${location.origin}${location.pathname}#data=${encoded}`;
+        navigator.clipboard.writeText(url).then(()=>{
+          alert('Enlace copiado al portapapeles. Ten en cuenta: el contenido queda en el hash (cliente) y no se sube a ningún servidor.');
+        }).catch(()=>{ prompt('Copia este enlace:', url); });
+      }catch(e){
+        alert('Error creando enlace.');
+      }
+    }
+    function loadFromURL(){
+      const hash = location.hash || '';
+      const m = hash.match(/#data=(.+)$/);
+      if(!m) return alert('No hay datos en la URL.');
+      try{
+        const decoded = decodeURIComponent(escape(atob(m[1])));
+        const obj = JSON.parse(decoded);
+        nameMeInput.value = obj.me || nameMeInput.value;
+        nameThemInput.value = obj.them || nameThemInput.value;
+        clearStream();
+        (obj.content || []).forEach(line => appendLineToStream(esc(line)));
+        document.getElementById('prompt-custom').value = obj.prompt || '';
+        scheduleSave();
+      }catch(e){
+        alert('No se pudo cargar contenido desde la URL.');
+      }
+    }
+    // On load: if URL contains data, auto-load
+    if(location.hash && location.hash.includes('data=')){
+      try{ loadFromURL(); }catch(e){ /* ignore */ }
+    }
+
+    /* ======== Avatar / meta updates ======== */
+    function updateAvatar(){
+      const me = nameMeInput.value || '';
+      const them = nameThemInput.value || '';
+      const initials = (them.trim()[0] || 'A').toUpperCase();
+      avatarInitials.textContent = initials;
+      document.getElementById('meta-title').textContent = `Carta para ${them || 'Aerlen'}`;
+      scheduleSave();
+    }
+
+    /* ======== Theme toggling ======== */
+    function toggleTheme(){
+      document.body.dataset.theme = (document.body.dataset.theme === 'light') ? 'dark' : 'light';
+      saveLocal();
+    }
+
+    /* ======== Local Reset ======== */
+    function clearLocal(){
+      if(!confirm('Borrar guardado local (no se puede deshacer)?')) return;
+      localStorage.removeItem('aerlen_letter_v1');
+      location.reload();
+    }
+
+    /* ======== Speech and keyboard hints ======== */
+    console.info('Carta interactiva mejorada cargada. Atajos: H=Música, M=Música, G=Generar, S=Compartir. Uso responsable con canciones con copyright.');
+
+    /* ======== On init: seed and load local ======== */
+    function seedLetter(){
+      const intro = [
+        "Parecía un entorno aleatorio... nos conocimos en un rincón improbable del mundo digital.",
+        "Pero el código cambió de dirección: de avatares pasamos a realidades, rompiendo la pantalla para fusionar nuestros mundos.",
+        "Hoy ya no quedan píxeles fríos. Ahora compartimos <span class='highlight'>tiempo real, amor puro, ternura</span> sin filtros.",
+        "...y una <span class='highlight'>intimidad</span> tan absoluta que redefine todo nuestro universo. Eres mi presente eterno, Aerlen."
+      ];
+      if(!loadLocal()){
+        clearStream();
+        intro.forEach(t=>{ const p=document.createElement('p'); p.innerHTML=t; streamBox.appendChild(p); });
+        scheduleSave();
+      } else {
+        console.info('Contenido cargado desde localStorage.');
+      }
+      updateAvatar();
+    }
+    seedLetter();
+
+    /* ======== Tiny improvement: mouse influence on bg particles ======== */
+    window.addEventListener('mousemove', (e)=>{
+      const cx = e.clientX / innerWidth;
+      const cy = e.clientY / innerHeight;
+      particles.forEach((p,i)=>{
+        p.vx += (cx - 0.5) * 0.01;
+        p.vy += (cy - 0.5) * 0.01;
+        p.vx *= 0.995; p.vy *= 0.998;
+      });
+    });
+
+    /* ======== Accessibility: make stream focusable ======== */
+    streamBox.setAttribute('tabindex','0');
+
+    /* Clean unload: save */
+    window.addEventListener('beforeunload', ()=>{ saveLocal(); });
+
+    /* Expose certain functions to global for inline handlers */
+    window.generateMany = generateMany;
+    window.appendCustom = appendCustom;
+    window.clearStream = clearStream;
+    window.downloadLetter = downloadLetter;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.toggleHeart = toggleHeart;
+    window.burstHearts = burstHearts;
+    window.burstConfetti = burstConfetti;
+    window.startSynth = startSynth;
+    window.stopSynth = stopSynth;
+    window.loadUserFile = loadUserFile;
+    window.toggleMusic = toggleMusic;
+    window.loadDefaultYT = loadDefaultYT;
+    window.openExternalYT = openExternalYT;
+    window.copyToClipboard = copyToClipboard;
+    window.printLetter = printLetter;
+    window.speakNow = speakNow;
+    window.stopSpeak = stopSpeak;
+    window.speakToggle = speakToggle;
+    window.generateStreamToggle = generateStreamToggle;
+    window.shareAsURL = shareAsURL;
+    window.loadFromURL = loadFromURL;
+    window.toggleTheme = toggleTheme;
+    window.clearLocal = clearLocal;
+    window.prependSample = prependSample;
+    window.seedLetter = seedLetter;
+
+  </script>
+</body>
+</html>
